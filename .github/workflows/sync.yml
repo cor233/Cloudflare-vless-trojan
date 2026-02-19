@@ -1,0 +1,44 @@
+name: 同步Cloudflare-vless-trojan
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync-all-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出目标仓库
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 设置 Git 用户信息
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: 添加源仓库为上游
+        run: git remote add upstream https://github.com/yonggekkk/Cloudflare-vless-trojan.git
+
+      - name: 获取上游所有分支
+        run: git fetch upstream
+
+      - name: 同步所有分支
+        run: |
+          UPSTREAM_BRANCHES=$(git branch -r | grep 'upstream/' | grep -v 'HEAD' | sed 's|upstream/||')
+          for BRANCH in $UPSTREAM_BRANCHES; do
+            echo "正在处理分支: $BRANCH"
+            if git show-ref --verify --quiet refs/heads/$BRANCH; then
+              git checkout $BRANCH
+              git merge upstream/$BRANCH --no-edit --allow-unrelated-histories
+              git push origin $BRANCH
+            else
+              git checkout -b $BRANCH upstream/$BRANCH
+              git push -u origin $BRANCH
+            fi
+          done
+
+      - name: 同步完成提示
+        run: echo "✅ 所有分支同步完成于 $(date)"
